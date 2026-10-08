@@ -10,7 +10,7 @@ import android.graphics.PorterDuffColorFilter
 import android.graphics.Shader
 
 /**
- * Loader sprite orisinal Nusantara Arena (assets/sprites/*.png).
+ * Loader sprite orisinal Nusantara Arena (folder assets/sprites, format PNG).
  * Bitmap dimuat sekali lalu di-cache. Unit netral (minion/tower/nexus)
  * di-tint warna tim via MULTIPLY agar satu sprite dipakai dua tim.
  */

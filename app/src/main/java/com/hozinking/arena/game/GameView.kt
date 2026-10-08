@@ -4,9 +4,11 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -39,7 +41,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     // Paint (dibuat sekali)
     private val pBg = Paint().apply { color = 0xFF1B2A1B.toInt() }
-    private val pLane = Paint().apply { color = 0xFF243B24.toInt() }
+    private val pLane = Paint().apply { color = 0x992A4226.toInt() }
     private val pBase = Paint().apply { color = 0xFF2E4A2E.toInt() }
     private val pText = Paint().apply { color = Color.WHITE; textSize = 42f; isAntiAlias = true }
     private val pSmall = Paint().apply { color = Color.WHITE; textSize = 28f; isAntiAlias = true }
@@ -53,6 +55,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private val pCd = Paint().apply { color = 0xAA000000.toInt(); isAntiAlias = true }
     private val pMap = Paint().apply { color = 0xDD0D1B0D.toInt() }
     private val pFx = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 6f; isAntiAlias = true }
+    private val dstF = RectF()   // rect reuse untuk drawBitmap (hindari alokasi per frame)
 
     init {
         holder.addCallback(this)
@@ -196,7 +199,12 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.scale(zoom, zoom)
         c.translate(-camX, -camY)
 
-        // Lanes
+        // Background: rumput ubin (fallback warna datar bila sprite belum termuat)
+        val gp = Sprites.grassPaint()
+        if (gp != null) c.drawRect(0f, 0f, World.W, World.H, gp)
+        else c.drawRect(0f, 0f, World.W, World.H, pBg)
+
+        // Lanes (semi-transparan di atas rumput)
         for (y in World.LANES) {
             c.drawRect(0f, y - 90f, World.W, y + 90f, pLane)
         }
@@ -209,32 +217,64 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             if (!u.alive) continue
             when (u) {
                 is Nexus -> {
-                    val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
-                    val s = u.radius
-                    c.drawRect(u.pos.x - s, u.pos.y - s, u.pos.x + s, u.pos.y + s, pp)
+                    val bmp = Sprites.nexus()
+                    if (bmp != null) {
+                        val half = u.radius * 1.35f
+                        dstF.set(u.pos.x - half, u.pos.y - half, u.pos.x + half, u.pos.y + half)
+                        c.drawBitmap(bmp, null, dstF, Sprites.tintPaint(u.team.color()))
+                    } else {
+                        val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
+                        val s = u.radius
+                        c.drawRect(u.pos.x - s, u.pos.y - s, u.pos.x + s, u.pos.y + s, pp)
+                    }
                     drawHpBar(c, u, 130f)
                 }
                 is Tower -> {
-                    val pp = Paint().apply { color = u.team.darkColor(); isAntiAlias = true }
-                    c.drawRect(u.pos.x - 34f, u.pos.y - 46f, u.pos.x + 34f, u.pos.y + 46f, pp)
-                    val pp2 = Paint().apply { color = u.team.color(); isAntiAlias = true }
-                    c.drawRect(u.pos.x - 34f, u.pos.y - 46f, u.pos.x + 34f, u.pos.y - 20f, pp2)
+                    val bmp = Sprites.tower()
+                    if (bmp != null) {
+                        val half = u.radius * 1.5f
+                        dstF.set(u.pos.x - half, u.pos.y - half, u.pos.x + half, u.pos.y + half)
+                        c.drawBitmap(bmp, null, dstF, Sprites.tintPaint(u.team.color()))
+                    } else {
+                        val pp = Paint().apply { color = u.team.darkColor(); isAntiAlias = true }
+                        c.drawRect(u.pos.x - 34f, u.pos.y - 46f, u.pos.x + 34f, u.pos.y + 46f, pp)
+                        val pp2 = Paint().apply { color = u.team.color(); isAntiAlias = true }
+                        c.drawRect(u.pos.x - 34f, u.pos.y - 46f, u.pos.x + 34f, u.pos.y - 20f, pp2)
+                    }
                     drawHpBar(c, u, 100f)
                 }
                 is Minion -> {
-                    val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
-                    c.drawCircle(u.pos.x, u.pos.y, u.radius, pp)
+                    val bmp = Sprites.minion(u.ranged)
+                    if (bmp != null) {
+                        val half = u.radius * 1.7f
+                        dstF.set(u.pos.x - half, u.pos.y - half, u.pos.x + half, u.pos.y + half)
+                        c.drawBitmap(bmp, null, dstF, Sprites.tintPaint(u.team.color()))
+                    } else {
+                        val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
+                        c.drawCircle(u.pos.x, u.pos.y, u.radius, pp)
+                    }
                     drawHpBar(c, u, 44f, 26f)
                 }
                 is Hero -> {
-                    // Badan + ring kit
-                    val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
-                    c.drawCircle(u.pos.x, u.pos.y, u.radius, pp)
+                    val bmp = Sprites.hero(u.kit.id)
+                    if (bmp != null) {
+                        // Sprite menghadap arah gerak (sprite menghadap atas)
+                        val ang = Math.toDegrees(atan2(u.faceDir.y.toDouble(), u.faceDir.x.toDouble())).toFloat() + 90f
+                        val half = u.radius * 1.6f
+                        c.save()
+                        c.rotate(ang, u.pos.x, u.pos.y)
+                        dstF.set(u.pos.x - half, u.pos.y - half, u.pos.x + half, u.pos.y + half)
+                        c.drawBitmap(bmp, null, dstF, Sprites.plainPaint)
+                        c.restore()
+                    } else {
+                        val pp = Paint().apply { color = u.team.color(); isAntiAlias = true }
+                        c.drawCircle(u.pos.x, u.pos.y, u.radius, pp)
+                        val f = Paint().apply { color = Color.WHITE; strokeWidth = 5f; isAntiAlias = true }
+                        c.drawLine(u.pos.x, u.pos.y, u.pos.x + u.faceDir.x * (u.radius + 12f), u.pos.y + u.faceDir.y * (u.radius + 12f), f)
+                    }
+                    // Ring warna kit (identitas hero)
                     val ring = Paint().apply { color = u.kit.color; style = Paint.Style.STROKE; strokeWidth = 6f; isAntiAlias = true }
                     c.drawCircle(u.pos.x, u.pos.y, u.radius + 4f, ring)
-                    // Arah hadap
-                    val f = Paint().apply { color = Color.WHITE; strokeWidth = 5f; isAntiAlias = true }
-                    c.drawLine(u.pos.x, u.pos.y, u.pos.x + u.faceDir.x * (u.radius + 12f), u.pos.y + u.faceDir.y * (u.radius + 12f), f)
                     drawHpBar(c, u, 70f, 44f)
                     // Nama + level
                     pTiny.textAlign = Paint.Align.CENTER
@@ -462,6 +502,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             }
         }
         if (x in width / 2f - 220f..width / 2f + 220f && y in y0 + chh + 60f..y0 + chh + 170f) {
+            Sprites.preload(context)   // cache sprite sebelum match mulai
             world = World(selectedKit)
             camX = world!!.player.pos.x
             camY = world!!.player.pos.y

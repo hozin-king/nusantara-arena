@@ -9,3 +9,4 @@ local.properties
 
 # OS
 .DS_Store
+ci_log.md

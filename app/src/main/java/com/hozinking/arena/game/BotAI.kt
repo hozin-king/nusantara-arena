@@ -80,7 +80,7 @@ object BotAI {
             val hold = frontTower != null &&
                     bot.pos.dist(frontTower.pos) < 520f &&
                     myMinions.none { it.pos.dist(frontTower.pos) < frontTower.range }
-            bot.moveDir = if (hold) {
+            bot.moveDir = if (hold && frontTower != null) {
                 // Tunggu minion: geser sedikit ke belakang
                 (bot.pos - frontTower.pos).norm() * 0.4f
             } else {

@@ -48,8 +48,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private val pBtnT = Paint().apply { color = Color.WHITE; textSize = 48f; isAntiAlias = true; textAlign = Paint.Align.CENTER }
     private val pHp = Paint()
     private val pHpBg = Paint().apply { color = 0xFF111111.toInt() }
-    private val pJoy = Paint().apply { color = 0x88FFFFFF; isAntiAlias = true }
-    private val pJoyKnob = Paint().apply { color = 0xCCFFFFFF; isAntiAlias = true }
+    private val pJoy = Paint().apply { color = 0x88FFFFFF.toInt(); isAntiAlias = true }
+    private val pJoyKnob = Paint().apply { color = 0xCCFFFFFF.toInt(); isAntiAlias = true }
     private val pCd = Paint().apply { color = 0xAA000000.toInt(); isAntiAlias = true }
     private val pMap = Paint().apply { color = 0xDD0D1B0D.toInt() }
     private val pFx = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 6f; isAntiAlias = true }
@@ -302,7 +302,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             c.drawCircle(joyOx + joyDx, joyOy + joyDy, 48f, pJoyKnob)
         } else {
             pSmall.textAlign = Paint.Align.LEFT
-            pSmall.color = 0x88FFFFFF
+            pSmall.color = 0x88FFFFFF.toInt()
             c.drawText("◀ joystick", 40f, height - 60f, pSmall)
         }
 
